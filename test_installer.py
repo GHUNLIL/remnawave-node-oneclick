@@ -1,8 +1,13 @@
 import importlib.util
 import io
 import json
+import os
+import pty
+import select
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -44,6 +49,50 @@ class FakeAPI:
 
 
 class Tests(unittest.TestCase):
+    def test_interactive_terminal_with_stdin_unavailable(self):
+        installer = Path(__file__).with_name("remnawave-node-install.sh")
+        code = '''import os,sys
+from pathlib import Path
+os.setsid()
+fd=os.open(sys.argv[2],os.O_RDWR)
+os.close(fd)
+script=Path(sys.argv[1]).read_text()
+source=script.split("<<'REMNA_ONECLICK_PYTHON'\\n",1)[1].rsplit("\\nREMNA_ONECLICK_PYTHON\\n",1)[0]
+scope={"__name__":"terminal_test"}
+exec(compile(source,"<installer>","exec"),scope)
+assert scope["ask"]("MODETEST","1") == "2"
+assert scope["ask"]("KEYTEST",hidden=True) == "dummy-terminal-secret"
+print("PROMPTS_OK",flush=True)
+'''
+        master, slave = pty.openpty()
+        process = None
+        received = b""
+        sent_mode = sent_key = False
+        try:
+            process = subprocess.Popen([sys.executable, "-c", code, str(installer), os.ttyname(slave)],
+                        stdin=subprocess.DEVNULL, stdout=slave, stderr=slave, close_fds=True)
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], 0.1)[0]:
+                    received += os.read(master, 4096)
+                if b"MODETEST" in received and not sent_mode:
+                    os.write(master, b"2\n")
+                    sent_mode = True
+                if b"KEYTEST" in received and not sent_key:
+                    os.write(master, b"dummy-terminal-secret\n")
+                    sent_key = True
+                if b"PROMPTS_OK" in received or process.poll() is not None:
+                    break
+            self.assertIn(b"PROMPTS_OK", received, received.decode(errors="replace"))
+            self.assertNotIn(b"dummy-terminal-secret", received, "hidden input echoed")
+            self.assertEqual(process.wait(timeout=3), 0)
+        finally:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait()
+            os.close(master)
+            os.close(slave)
+
     def test_generated_script_self_test(self):
         result = subprocess.run(["bash", str(Path(__file__).with_name("remnawave-node-install.sh")), "--self-test"], capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr.decode())

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remnawave Node one-click installer 1.0.0
+# Remnawave Node one-click installer 1.0.1
 # Standalone artifact; no credentials, server addresses or third-party installer URLs.
 set -Eeuo pipefail
 umask 077
@@ -7,11 +7,12 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat <<'HELP'
-Remnawave Node 一键安装器 v1.0.0
+Remnawave Node 一键安装器 v1.0.1
 
-安装：       sudo bash remnawave-node-install.sh
-预览：       sudo bash remnawave-node-install.sh --dry-run
-检查：       sudo bash remnawave-node-install.sh --check
+root 安装：  bash remnawave-node-install.sh
+root 预览：  bash remnawave-node-install.sh --dry-run
+root 检查：  bash remnawave-node-install.sh --check
+非 root：    sudo bash remnawave-node-install.sh
 离线自检：   bash remnawave-node-install.sh --self-test
 
 支持 Debian 12/13、Ubuntu 22.04/24.04/26.04，amd64/arm64，systemd。
@@ -90,7 +91,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 BASE = Path("/opt/remnawave-node-oneclick")
 OWNER = "remnawave-node-oneclick"
 CONTAINER = "remnawave-node-oneclick"
@@ -237,8 +238,9 @@ def node_name(value):
 
 
 def ask(title, default=None, validator=lambda x: x, hidden=False):
-    # /dev/tty also supports 'curl ... | sudo bash'; embedded source owns stdin.
-    with open("/dev/tty", "r+") as tty:
+    # A terminal is non-seekable: open separate input/output text streams.
+    # The embedded Python source owns stdin, so prompts use the controlling tty.
+    with open("/dev/tty", "r") as tty_in, open("/dev/tty", "w") as tty:
         while True:
             prompt = title + (" [回车保留]" if hidden and default else
                               " [%s]" % default if default is not None else "") + ": "
@@ -247,7 +249,7 @@ def ask(title, default=None, validator=lambda x: x, hidden=False):
             else:
                 tty.write(prompt)
                 tty.flush()
-                answer = tty.readline()
+                answer = tty_in.readline()
                 if not answer:
                     raise InstallError("交互终端已关闭")
                 answer = answer.rstrip("\r\n")
@@ -1230,7 +1232,7 @@ def main():
             WARNINGS.append("未选择内部组：需要在面板把此入站加入用户所属组后，用户订阅才会包含新节点。")
         for message in WARNINGS:
             say("注意：" + message)
-        say("检查命令：sudo bash remnawave-node-install.sh --check")
+        say("root 检查命令：bash remnawave-node-install.sh --check")
         return 3 if pending else 0
 
 

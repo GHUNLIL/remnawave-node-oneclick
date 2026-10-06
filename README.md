@@ -1,18 +1,24 @@
 # Remnawave Node One-click Installer
 
-在目标 Linux 服务器执行以下命令，即可下载脚本并开始交互式安装：
+## 一键安装（root 用户）
+
+复制下面整行到目标 Linux 服务器的 root 终端执行，无需安装 sudo：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GHUNLIL/remnawave-node-oneclick/main/remnawave-node-install.sh -o remnawave-node-install.sh && sudo bash remnawave-node-install.sh
+curl -fsSL https://raw.githubusercontent.com/GHUNLIL/remnawave-node-oneclick/main/remnawave-node-install.sh -o remnawave-node-install.sh && bash remnawave-node-install.sh
 ```
 
-将同目录的 `remnawave-node-install.sh` 上传到**需要安装 Node 的 Linux 服务器**，运行：
+v1.0.1 已修复首次输入前的终端读写错误。已下载旧版本时，可执行上面命令重新下载。
+
+也可以将同目录的 `remnawave-node-install.sh` 上传到**需要安装 Node 的 Linux 服务器**，以 root 运行：
 
 ```bash
-sudo bash remnawave-node-install.sh
+bash remnawave-node-install.sh
 ```
 
 支持 Debian 12/13、Ubuntu 22.04/24.04/26.04，amd64/arm64，使用 systemd。默认固定镜像 `remnawave/node:3.4.2`，对应已验证的面板 3.4.5；也可以输入其他固定版本，安装时会用镜像自带的 Xray 校验配置。首次运行需要服务器能访问发行版仓库、Docker 官方仓库和 Docker Hub。
+
+非 root 用户需使用 `sudo bash remnawave-node-install.sh`，或者先切换为 root。
 
 **方式 1：API 自动对接**
 
@@ -46,10 +52,10 @@ sudo bash remnawave-node-install.sh
 
 ```bash
 # 交互预览，不安装依赖或修改服务器/面板配置
-sudo bash remnawave-node-install.sh --dry-run
+bash remnawave-node-install.sh --dry-run
 
 # 读取当前系统参数和本脚本容器状态
-sudo bash remnawave-node-install.sh --check
+bash remnawave-node-install.sh --check
 
 # 离线回归检查，不操作系统网络、Docker 或面板
 bash remnawave-node-install.sh --self-test
@@ -57,7 +63,7 @@ bash remnawave-node-install.sh --self-test
 
 退出码 `0` 表示脚本阶段完成；SECRET_KEY 模式仍需面板选好 Profile 并完成连接。API 模式退出码 `3` 表示本地部署和面板资源已保留，但面板连接/Xray 启动尚未确认，需检查连通性。退出码 `1` 表示失败，会尝试回退本次配置；`130` 表示用户中断。备份位于 `/opt/remnawave-node-oneclick/backups/`。
 
-验证已通过：Bash 语法、离线自检、6 项回归检查；官方 Node 3.4.2 镜像内的 Xray 配置检查；隔离网络命名空间内的 IPv4/IPv6、策略路由、多路径路由和 nftables 原子替换；独立临时 SmartDNS 的真实 TCP/UDP 查询；现有 Node 的只读证书校验。API 创建和失败回退使用模拟 API 验证，没有新增生产面板节点，也没有在全新 VPS 上完整执行安装流程。验证过程中已有 Node 和 SmartDNS 服务的进程身份保持一致。
+验证已通过：Bash 语法、离线自检、7 项回归检查（包含标准输入不可用时的真实终端普通输入及隐藏密钥输入）；官方 Node 3.4.2 镜像内的 Xray 配置检查；隔离网络命名空间内的 IPv4/IPv6、策略路由、多路径路由和 nftables 原子替换；独立临时 SmartDNS 的真实 TCP/UDP 查询；现有 Node 的只读证书校验。API 创建和失败回退使用模拟 API 验证，没有新增生产面板节点，也没有在全新 VPS 上完整执行安装流程。验证过程中已有 Node 和 SmartDNS 服务的进程身份保持一致。
 
 实现依据：[Remnawave Node 官方文档](https://docs.rw/install/remnawave-node/)、[Docker Debian 安装说明](https://docs.docker.com/engine/install/debian/)、[Docker Ubuntu 安装说明](https://docs.docker.com/engine/install/ubuntu/)、[Linux TCP 参数](https://www.kernel.org/doc/html/latest/networking/ip-sysctl.html)、[ip-route 手册](https://man7.org/linux/man-pages/man8/ip-route.8.html)。
 
